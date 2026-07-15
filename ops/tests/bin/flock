@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+[[ "${1:-}" == "-n" ]]
+[[ "${2:-}" =~ ^[0-9]+$ ]]

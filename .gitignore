@@ -16,3 +16,8 @@ build
 # Automatically-built files
 .npmignore
 .eslintcache
+
+# Local secrets
+.env
+.env.*
+!.env.example

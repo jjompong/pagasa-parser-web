@@ -2,7 +2,7 @@
 #                     BUILD IMAGE
 # ====================================================
 
-FROM node:16-alpine AS BUILD_IMAGE
+FROM node:20-alpine AS BUILD_IMAGE
 ENV NODE_ENV=development
 
 # Disable npm update message
@@ -13,10 +13,13 @@ RUN npm config set update-notifier false
 # ====================================
 WORKDIR /build
 
-COPY package*.json .
+RUN apk add --no-cache git \
+    && git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+
+COPY package*.json ./
 COPY backend/package*.json backend/
 COPY frontend/package*.json frontend/
-RUN npm -d ci
+RUN npm ci
 
 # ====================================
 # Copy and build
@@ -39,18 +42,19 @@ RUN rm -rf /build/backend/src
 # ====================================
 # Prune non-production dependencies
 # ====================================
-RUN npm prune --workspaces --production
+RUN npm prune --workspaces --omit=dev
 
 # ====================================================
 #                       APP IMAGE
 # ====================================================
 
-FROM node:16-alpine AS APP_IMAGE
+FROM node:20-alpine AS APP_IMAGE
 ENV NODE_ENV=production
+ARG PARSER_IMAGE_REF=local
+ENV PARSER_IMAGE_REF=$PARSER_IMAGE_REF
 
 # Install headless JRE, disable npm update notice.
-RUN apk update \
-    && apk add openjdk11-jre-headless \
+RUN apk add --no-cache openjdk17-jre-headless \
     && npm config set update-notifier false
 
 # ====================================

@@ -1,7 +1,11 @@
 import {ApiEndpoint, ApiEndpointResponse} from "./ApiEndpoint";
 import express from "express";
 import {BulletinListCache} from "../../cache/BulletinListCache";
-import {BulletinManager} from "../../bulletin/BulletinManager";
+import {
+    BulletinCooldownError,
+    BulletinManager,
+    BulletinParseError
+} from "../../bulletin/BulletinManager";
 import {Bulletin} from "pagasa-parser";
 
 interface BulletinParseEndpointResponse extends ApiEndpointResponse {
@@ -30,10 +34,30 @@ export class BulletinParseEndpoint extends ApiEndpoint<BulletinParseEndpointResp
                 return;
             }
 
-            this.send(res, {
-                error: false,
-                bulletin: await BulletinManager.i.parse(bulletin)
-            });
+            const startedAt = Date.now();
+            try {
+                const parsed = await BulletinManager.i.parse(bulletin);
+                res.set("Server-Timing", `parser;dur=${Date.now() - startedAt}`);
+                this.send(res, {
+                    error: false,
+                    bulletin: parsed
+                });
+            } catch (error) {
+                if (error instanceof BulletinCooldownError || error instanceof BulletinParseError) {
+                    const retryAfter = BulletinManager.i.getRetryAfterSeconds(error.failure);
+                    res.set("Retry-After", String(Math.max(1, retryAfter)));
+                    res.set("Server-Timing", `parser;dur=${Date.now() - startedAt}`);
+                    this.sendError(
+                        res,
+                        error instanceof BulletinCooldownError
+                            ? `Parsing is temporarily paused after ${error.failure.attempts} failed attempt(s).`
+                            : "The bulletin could not be parsed. A bounded retry has been scheduled.",
+                        error instanceof BulletinCooldownError ? 503 : 422
+                    );
+                    return;
+                }
+                throw error;
+            }
         } else {
             this.sendError(res, "A bulletin to download was not provided.", 400);
         }
