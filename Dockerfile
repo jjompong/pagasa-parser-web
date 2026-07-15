@@ -16,7 +16,7 @@ WORKDIR /build
 RUN apk add --no-cache git \
     && git config --global url."https://github.com/".insteadOf ssh://git@github.com/
 
-COPY package*.json .
+COPY package*.json ./
 COPY backend/package*.json backend/
 COPY frontend/package*.json frontend/
 RUN npm ci
