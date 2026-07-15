@@ -33,7 +33,7 @@
     },
     "homepage": "https://github.com/jjompong/pagasa-parser-web#readme",
     "dependencies": {
-        "@pagasa-parser/source-pdf": "git+https://github.com/jjompong/source-pdf.git#29cb6162ba74f71a9b4ea97e4e6e0b80c8efe812",
+        "@pagasa-parser/source-pdf": "git+https://github.com/jjompong/source-pdf.git#086232ca9b2525cc4164aab3f72c324f66802f42",
         "husky": "^7.0.4"
     },
     "devDependencies": {
