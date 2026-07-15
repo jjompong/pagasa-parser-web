@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+url=""
+for argument in "$@"; do
+    if [[ "$argument" == http://* || "$argument" == https://* ]]; then
+        url="$argument"
+    fi
+done
+
+case "$url" in
+    */bulletin/list)
+        printf '%s' '{"error":false,"bulletins":[{"name":"francisco","count":21,"file":"TCB#21_francisco.pdf"},{"name":"josie","count":2,"file":"TCB#2_josie.pdf"},{"name":"josie","count":3,"file":"TCB#3_josie.pdf"}]}'
+        ;;
+    *cyclone.dat)
+        printf 'JOSIE{HAISHEN}\nLPA,2026-07-14,14:00,14.2,134.2,0\n'
+        ;;
+    */bulletin/has/*)
+        if [[ "${MOCK_SCENARIO:-priority}" == "quarantine" && "$url" == *TCB%233_josie.pdf ]]; then
+            printf '%s' '{"error":false,"downloaded":true,"downloading":false,"parsed":false,"parsing":false,"parseFailure":{"attempts":5,"retryAfterSeconds":3600}}'
+        elif [[ "${MOCK_SCENARIO:-priority}" == "quarantine" && "$url" == *TCB%232_josie.pdf ]]; then
+            printf '%s' '{"error":false,"downloaded":true,"downloading":false,"parsed":true,"parsing":false,"parseFailure":null}'
+        else
+            printf '%s' '{"error":false,"downloaded":true,"downloading":false,"parsed":false,"parsing":false,"parseFailure":null}'
+        fi
+        ;;
+    */bulletin/download/*)
+        printf '%s' '{"error":false,"downloaded":true}'
+        ;;
+    */bulletin/parse/*)
+        printf '%s\n' "$url" >> "${MOCK_CALL_LOG:?}"
+        printf '%s' '{"error":false,"bulletin":{}}'
+        ;;
+    *)
+        printf 'unexpected mock curl URL: %s\n' "$url" >&2
+        exit 1
+        ;;
+esac

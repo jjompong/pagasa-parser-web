@@ -7,7 +7,7 @@
     "dependencies": {
         "@pagasa-parser/formatter-signals": "^0.1.2",
         "@pagasa-parser/formatter-wikipedia": "^1.1.0",
-        "@pagasa-parser/source-pdf": "^1.1.9",
+        "@pagasa-parser/source-pdf": "git+https://github.com/jjompong/source-pdf.git#29cb6162ba74f71a9b4ea97e4e6e0b80c8efe812",
         "axios": "^0.24.0",
         "body-parser": "^1.19.1",
         "bunyan": "^1.8.15",
@@ -60,7 +60,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/pagasa-parser/pagasa-parser-web.git"
+        "url": "git+https://github.com/jjompong/pagasa-parser-web.git"
     },
     "keywords": [
         "scraper",
@@ -72,7 +72,7 @@
     "author": "Chlod Alejandro <chlod@chlod.net> (https://chlod.net)",
     "license": "AGPL-3.0",
     "bugs": {
-        "url": "https://github.com/pagasa-parser/pagasa-parser-web/issues"
+        "url": "https://github.com/jjompong/pagasa-parser-web/issues"
     },
-    "homepage": "https://github.com/pagasa-parser/pagasa-parser-web#readme"
+    "homepage": "https://github.com/jjompong/pagasa-parser-web#readme"
 }

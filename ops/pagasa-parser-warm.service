@@ -1,0 +1,21 @@
+[Unit]
+Description=Warm newly published PAGASA bulletins in the parser cache
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+
+[Service]
+Type=oneshot
+User=dawn
+Group=dawn
+Environment=PARSER_BASE_URL=http://127.0.0.1:12464/api/v1
+Environment=MAX_PARSE_PER_RUN=2
+StateDirectory=pagasa-warm
+StateDirectoryMode=0750
+ExecStart=/usr/local/bin/pagasa-parser-warm.sh
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,12 @@
 # PAGASA Parser Web
+
+This fork powers [Maybagyoba](https://maybagyoba.site) and tracks the original
+[`pagasa-parser/pagasa-parser-web`](https://github.com/pagasa-parser/pagasa-parser-web)
+project. It adds production safeguards for malformed or slow bulletins while
+preserving the upstream API.
+
 ![Screenshot of the interface](/.github/images/screenshot-1.png)
-PAGASA Parser Web combines all PAGASA Parser formatters together with [@pagasa-parser/source-pdf](https://github.com/pagasa-parser/source-pdf) to automatically scrape the [PAGASA website](http://bagong.pagasa.dost.gov.ph) for bulletins. This means you can run the PAGASA Parser anytime, anywhere, with all bulletins currently available and format them to your heart's content.
+PAGASA Parser Web combines all PAGASA Parser formatters together with [@pagasa-parser/source-pdf](https://github.com/jjompong/source-pdf) to automatically scrape the [PAGASA website](http://bagong.pagasa.dost.gov.ph) for bulletins. This means you can run the PAGASA Parser anytime, anywhere, with all bulletins currently available and format them to your heart's content.
 
 You can find a live version of this website at [pagasa.chlod.net](https://pagasa.chlod.net). If you wish to run your own version of PAGASA Parser Web, it is also available as a [Docker image](https://hub.docker.com/r/chlod/pagasa-parser-web) (available at port 80).
 ![Screenshot of the landing page](/.github/images/screenshot-2.png)
@@ -8,17 +14,46 @@ You can find a live version of this website at [pagasa.chlod.net](https://pagasa
 Hosting for pagasa.chlod.net is provided by Chlod Alejandro. If you'd like to help alleviate server costs, please consider sponsoring this project.
 
 ## Usage
-Running PAGASA Parser standalone requires Java to run the PDF parser in [@pagasa-parser/source-pdf](https://github.com/pagasa-parser/source-pdf) (Tabula). Aside from this, you'll need Node.js. This project has been tested on both Node v14 and v16. You'll need to build both the backend and frontend first before use. The default port for the web server is 12464.
+Running PAGASA Parser standalone requires Java to run the PDF parser in [@pagasa-parser/source-pdf](https://github.com/jjompong/source-pdf) (Tabula). Aside from this, you'll need Node.js 20. You'll need to build both the backend and frontend first before use. The default port for the web server is 12464.
+
+### Parse resilience
+
+- Concurrent requests for one bulletin share a single parser process.
+- Failed downloads and parses persist under `data/parse-failures/` and retry at
+  1 minute, 5 minutes, 15 minutes, 1 hour, then hourly.
+- `GET /api/v1/bulletin/has/:file` exposes `downloading`, `parsing`,
+  `parseFailure`, and `retryAfterSeconds` for operational checks.
+- Parse responses include `Server-Timing`; cooldown responses include
+  `Retry-After`.
+- Parser events are emitted as one-line JSON records with the
+  `pagasa_parser.*` event prefix.
+- At one hour of continuous failure, the parser sends one deduplicated Discord
+  alert and continues hourly retries. A successful parse sends one recovery
+  notification. It reuses Dawn v3's Discord incoming-webhook payload pattern,
+  pointed at a dedicated Maybagyoba channel through `ALERT_WEBHOOK_URL` and
+  `PAUL_DISCORD_USER_ID`. `PARSER_IMAGE_REF` identifies the deployed image; no
+  webhook value is stored in this repository.
+
+The bundled [`ops/pagasa-parser-warm.sh`](ops/pagasa-parser-warm.sh) warmer
+uses those states rather than a separate "seen" list, so an unparseable PDF is
+not launched every minute. It uses PAGASA's `cyclone.dat` marker to prioritize
+the active cyclone's newest bulletin instead of relying on the API's filename
+ordering. The matching systemd service and timer are included in `ops/`;
+installing or restarting them is a separate production rollout step.
 
 ## Docker
 The Docker container contains everything needed to run PAGASA Parser and also exposes the web server at port 80. To get started easily, run the following command in your preferred shell. This will run the PAGASA Parser on port 12464.
 ```shell
-docker run -d --name pagasa-parser-web -p 12464:80 chlod/pagasa-parser-web:latest
+docker run -d --name pagasa-parser-web -p 12464:80 ghcr.io/jjompong/pagasa-parser-web:latest
 ```
 
 The following environment variables are available for customization of the instance.
 * `PORT` – The internal port of the server
 * `PPW_OWNER` – The owner of the instance. This is used in the user agent when making outbound requests.
+* `PAGASA_PARSER_TABULA_TIMEOUT_MS` – Maximum runtime for each Tabula extraction mode (default: 45000).
+* `ALERT_WEBHOOK_URL` – Optional Discord incoming webhook for persistent parser failures and recoveries.
+* `PAUL_DISCORD_USER_ID` – Optional Discord user ID mentioned by parser alerts.
+* `PARSER_IMAGE_REF` – Deployed image tag or digest included in parser alerts.
 
 ## Development
 Before starting, install all dependencies on the root project, `/frontend`, and `/backend`. 

@@ -1,11 +1,18 @@
 import {ApiEndpoint, ApiEndpointResponse} from "./ApiEndpoint";
 import express from "express";
 import {BulletinListCache} from "../../cache/BulletinListCache";
-import {BulletinManager} from "../../bulletin/BulletinManager";
+import {BulletinManager, ParseFailureRecord} from "../../bulletin/BulletinManager";
+
+interface ParseFailureStatus extends ParseFailureRecord {
+    retryAfterSeconds: number;
+}
 
 interface BulletinHasEndpointResponse extends ApiEndpointResponse {
     downloaded: boolean,
-    parsed: boolean
+    downloading: boolean,
+    parsed: boolean,
+    parsing: boolean,
+    parseFailure: ParseFailureStatus | null
 }
 
 export class BulletinHasEndpoint extends ApiEndpoint<BulletinHasEndpointResponse> {
@@ -25,10 +32,17 @@ export class BulletinHasEndpoint extends ApiEndpoint<BulletinHasEndpointResponse
                 return;
             }
 
+            const failure = BulletinManager.i.getParseFailure(bulletin);
             this.send(res, {
                 error: false,
                 downloaded: BulletinManager.i.has(bulletin),
-                parsed: BulletinManager.i.hasParsed(bulletin)
+                downloading: BulletinManager.i.isDownloading(bulletin),
+                parsed: BulletinManager.i.hasParsed(bulletin),
+                parsing: BulletinManager.i.isParsing(bulletin),
+                parseFailure: failure ? {
+                    ...failure,
+                    retryAfterSeconds: BulletinManager.i.getRetryAfterSeconds(failure)
+                } : null
             });
         } else {
             this.sendError(res, "A bulletin to download was not provided.", 400);
