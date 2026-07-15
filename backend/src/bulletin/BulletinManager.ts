@@ -338,6 +338,9 @@ export class BulletinManager {
     }
 
     private nextRetryAt(attempts: number, firstFailedMs: number, nowMs: number): Date {
+        if (nowMs - firstFailedMs >= ALERT_THRESHOLD_MS) {
+            return new Date(nowMs + ESCALATED_RETRY_MS);
+        }
         if (attempts <= RETRY_AT_AGES_MS.length) {
             const scheduledMs = firstFailedMs + RETRY_AT_AGES_MS[attempts - 1];
             return new Date(scheduledMs > nowMs ? scheduledMs : nowMs + 60 * 1000);

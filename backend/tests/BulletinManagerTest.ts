@@ -243,6 +243,34 @@ describe("BulletinManager parse resilience", () => {
         expect(BulletinManager.i.hasParsed(otherDocument)).toBe(true);
     });
 
+    test("uses the five-minute P0 cadence after a delayed service resume", async () => {
+        mockParse.mockRejectedValue(new Error("parser remained unavailable"));
+
+        await expect(BulletinManager.i.parse(document)).rejects.toBeInstanceOf(
+            BulletinParseError
+        );
+
+        // Only one pre-threshold attempt was recorded before a long outage.
+        // Elapsed time, not attempt count, must select the P0 cadence on resume.
+        jest.setSystemTime(new Date("2026-07-15T02:00:00.000Z"));
+        await expect(BulletinManager.i.parse(document)).rejects.toBeInstanceOf(
+            BulletinParseError
+        );
+
+        expect(BulletinManager.i.getParseFailure(document)).toMatchObject({
+            attempts: 2,
+            nextRetryAt: "2026-07-15T02:05:00.000Z",
+            alertedAt: "2026-07-15T02:00:00.000Z",
+            lastAlertedAt: "2026-07-15T02:00:00.000Z",
+            alertsSent: 1
+        });
+        expect(alerts.sendFailure).toHaveBeenCalledTimes(1);
+        expect(alerts.sendFailure).toHaveBeenCalledWith(expect.objectContaining({
+            elapsedMs: 2 * 60 * 60 * 1000,
+            attempts: 2
+        }));
+    });
+
     test("records download failures in the same per-bulletin quarantine", async () => {
         mockAxios.mockRejectedValueOnce(new Error("PAGASA download timed out"));
 
