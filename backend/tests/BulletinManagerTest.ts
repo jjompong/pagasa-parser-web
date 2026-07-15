@@ -134,14 +134,14 @@ describe("BulletinManager parse resilience", () => {
         expect(BulletinManager.i.hasParsed(document)).toBe(true);
     });
 
-    test("uses 1m/5m/15m/1h retry points, alerts once at one hour, then recovers hourly", async () => {
+    test("uses 1m/5m/15m/1h retry points, then alerts and retries every five minutes", async () => {
         mockParse.mockRejectedValue(new Error("coordinate pattern not found"));
         const attempts = [
             ["2026-07-15T00:00:00.000Z", "2026-07-15T00:01:00.000Z"],
             ["2026-07-15T00:01:00.000Z", "2026-07-15T00:05:00.000Z"],
             ["2026-07-15T00:05:00.000Z", "2026-07-15T00:15:00.000Z"],
             ["2026-07-15T00:15:00.000Z", "2026-07-15T01:00:00.000Z"],
-            ["2026-07-15T01:00:00.000Z", "2026-07-15T02:00:00.000Z"]
+            ["2026-07-15T01:00:00.000Z", "2026-07-15T01:05:00.000Z"]
         ];
 
         for (const [attemptedAt, nextRetryAt] of attempts) {
@@ -170,33 +170,56 @@ describe("BulletinManager parse resilience", () => {
             ])
         }));
 
-        // Simulate a service restart: alertedAt must remain persisted so the
-        // hourly retry does not send the same escalation again.
+        expect(BulletinManager.i.getParseFailure(document)).toMatchObject({
+            alertedAt: "2026-07-15T01:00:00.000Z",
+            lastAlertedAt: "2026-07-15T01:00:00.000Z",
+            alertsSent: 1
+        });
+
+        // Simulate a service restart: cooldown and alert history must persist,
+        // but the next failed P0 attempt still sends a new alert.
         BulletinManager.i.initialize(dataDirectory, {
             alerts,
             parserVersion: "pagasa-parser-web/1.3.0 source-pdf/test-sha",
             imageRef: "ghcr.io/jjompong/pagasa-parser-web:test",
             architecture: "arm64"
         });
-        jest.setSystemTime(new Date("2026-07-15T01:59:00.000Z"));
+        jest.setSystemTime(new Date("2026-07-15T01:04:00.000Z"));
         await expect(BulletinManager.i.parse(document)).rejects.toBeInstanceOf(
             BulletinCooldownError
         );
         expect(mockParse).toHaveBeenCalledTimes(5);
         expect(alerts.sendFailure).toHaveBeenCalledTimes(1);
 
+        jest.setSystemTime(new Date("2026-07-15T01:05:00.000Z"));
+        await expect(BulletinManager.i.parse(document)).rejects.toBeInstanceOf(
+            BulletinParseError
+        );
+        expect(alerts.sendFailure).toHaveBeenCalledTimes(2);
+        expect(alerts.sendFailure).toHaveBeenLastCalledWith(expect.objectContaining({
+            elapsedMs: 65 * 60 * 1000,
+            attempts: 6
+        }));
+        expect(BulletinManager.i.getParseFailure(document)).toMatchObject({
+            attempts: 6,
+            nextRetryAt: "2026-07-15T01:10:00.000Z",
+            alertedAt: "2026-07-15T01:00:00.000Z",
+            lastAlertedAt: "2026-07-15T01:05:00.000Z",
+            alertsSent: 2
+        });
+
         mockParse.mockResolvedValueOnce(parsedBulletin);
-        jest.setSystemTime(new Date("2026-07-15T02:00:00.000Z"));
+        jest.setSystemTime(new Date("2026-07-15T01:10:00.000Z"));
         await expect(BulletinManager.i.parse(document)).resolves.toMatchObject({
             info: {url: document.link}
         });
 
-        expect(alerts.sendFailure).toHaveBeenCalledTimes(1);
+        expect(alerts.sendFailure).toHaveBeenCalledTimes(2);
         expect(alerts.sendRecovery).toHaveBeenCalledTimes(1);
         expect(alerts.sendRecovery).toHaveBeenCalledWith(expect.objectContaining({
             file: document.file,
             stage: "parse",
-            attempts: 5,
+            attempts: 6,
             imageRef: "ghcr.io/jjompong/pagasa-parser-web:test",
             architecture: "arm64"
         }));

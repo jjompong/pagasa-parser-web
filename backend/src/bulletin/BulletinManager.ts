@@ -15,14 +15,14 @@ import {
 } from "../alerts/BulletinAlertService";
 
 // Retry points are measured from the first failure: 1m, 5m, 15m, then 1h.
-// Subsequent attempts remain hourly so one bad PDF cannot create a hot loop.
+// A bulletin still failing at 1h becomes a P0 and retries every five minutes.
 const RETRY_AT_AGES_MS = [
     60 * 1000,
     5 * 60 * 1000,
     15 * 60 * 1000,
     60 * 60 * 1000
 ];
-const HOURLY_RETRY_MS = 60 * 60 * 1000;
+const ESCALATED_RETRY_MS = 5 * 60 * 1000;
 const ALERT_THRESHOLD_MS = 60 * 60 * 1000;
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -46,7 +46,10 @@ export interface ParseFailureRecord {
     lastError: string;
     operationDurationMs: number;
     parseTimings: ParseTiming[];
+    // alertedAt is the first successful alert and gates the recovery notice.
     alertedAt?: string;
+    lastAlertedAt?: string;
+    alertsSent?: number;
 }
 
 export class BulletinCooldownError extends Error {
@@ -307,20 +310,29 @@ export class BulletinManager {
             lastError: this.errorMessage(error),
             operationDurationMs,
             parseTimings,
-            alertedAt: previous?.alertedAt
+            alertedAt: previous?.alertedAt,
+            lastAlertedAt: previous?.lastAlertedAt,
+            alertsSent: previous?.alertsSent ?? 0
         };
         this.writeJSONAtomic(this.getFailurePath(document), failure);
 
         const elapsedMs = Math.max(0, now.getTime() - firstFailedMs);
-        if (elapsedMs >= ALERT_THRESHOLD_MS && !failure.alertedAt) {
+        if (elapsedMs >= ALERT_THRESHOLD_MS) {
             const sent = await this.alerts.sendFailure(
                 this.alertDetails(document, failure, operationDurationMs, parseTimings)
             );
             if (sent) {
-                failure.alertedAt = now.toISOString();
+                failure.alertedAt ??= now.toISOString();
+                failure.lastAlertedAt = now.toISOString();
+                failure.alertsSent = (failure.alertsSent ?? 0) + 1;
                 this.writeJSONAtomic(this.getFailurePath(document), failure);
             }
-            this.log("failure_notification", document.file, {sent, elapsedMs});
+            this.log("failure_notification", document.file, {
+                sent,
+                elapsedMs,
+                attempts,
+                alertsSent: failure.alertsSent
+            });
         }
         return failure;
     }
@@ -330,7 +342,7 @@ export class BulletinManager {
             const scheduledMs = firstFailedMs + RETRY_AT_AGES_MS[attempts - 1];
             return new Date(scheduledMs > nowMs ? scheduledMs : nowMs + 60 * 1000);
         }
-        return new Date(nowMs + HOURLY_RETRY_MS);
+        return new Date(nowMs + ESCALATED_RETRY_MS);
     }
 
     private alertDetails(

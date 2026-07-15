@@ -37,10 +37,10 @@ export class DiscordBulletinAlertService implements BulletinAlertSender {
 
     async sendFailure(details: BulletinAlertDetails): Promise<boolean> {
         return this.send(
-            "Maybagyoba parser bulletin failure",
+            "P0: Maybagyoba parser bulletin failure",
             details,
             0xED4245,
-            "The bulletin remains quarantined. Other bulletins continue processing; this one will retry hourly."
+            "P0 escalation is active. The bulletin remains quarantined while other bulletins continue processing. It will retry in 5 minutes, and every failed retry will alert until recovery."
         );
     }
 

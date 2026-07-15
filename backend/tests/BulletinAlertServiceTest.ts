@@ -44,6 +44,7 @@ describe("DiscordBulletinAlertService", () => {
         const [url, payload, config] = mockPost.mock.calls[0];
         expect(url).toBe("https://discord.example.invalid/webhook");
         expect(payload.content).toBe("<@123456>");
+        expect(payload.embeds[0].title).toContain("P0");
         expect(payload.embeds[0].title).toContain("bulletin failure");
         expect(payload.embeds[0].description).toContain(details.file);
         expect(payload.embeds[0].description).toContain(details.link);
@@ -54,6 +55,8 @@ describe("DiscordBulletinAlertService", () => {
         expect(payload.embeds[0].description).toContain(`${details.imageRef} / arm64`);
         expect(payload.embeds[0].description).toContain("stream:succeeded=820ms");
         expect(payload.embeds[0].description).toContain("lattice:succeeded=910ms");
+        expect(payload.embeds[0].description).toContain("retry in 5 minutes");
+        expect(payload.embeds[0].description).toContain("every failed retry will alert");
         expect(config.timeout).toBe(10000);
     });
 

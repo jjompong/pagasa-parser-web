@@ -17,7 +17,7 @@ case "$url" in
         ;;
     */bulletin/has/*)
         if [[ "${MOCK_SCENARIO:-priority}" == "quarantine" && "$url" == *TCB%233_josie.pdf ]]; then
-            printf '%s' '{"error":false,"downloaded":true,"downloading":false,"parsed":false,"parsing":false,"parseFailure":{"attempts":5,"retryAfterSeconds":3600}}'
+            printf '%s' '{"error":false,"downloaded":true,"downloading":false,"parsed":false,"parsing":false,"parseFailure":{"attempts":5,"retryAfterSeconds":300}}'
         elif [[ "${MOCK_SCENARIO:-priority}" == "quarantine" && "$url" == *TCB%232_josie.pdf ]]; then
             printf '%s' '{"error":false,"downloaded":true,"downloading":false,"parsed":true,"parsing":false,"parseFailure":null}'
         else

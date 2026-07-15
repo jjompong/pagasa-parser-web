@@ -20,16 +20,17 @@ Running PAGASA Parser standalone requires Java to run the PDF parser in [@pagasa
 
 - Concurrent requests for one bulletin share a single parser process.
 - Failed downloads and parses persist under `data/parse-failures/` and retry at
-  1 minute, 5 minutes, 15 minutes, 1 hour, then hourly.
+  1 minute, 5 minutes, 15 minutes, 1 hour, then every 5 minutes until recovery.
 - `GET /api/v1/bulletin/has/:file` exposes `downloading`, `parsing`,
   `parseFailure`, and `retryAfterSeconds` for operational checks.
 - Parse responses include `Server-Timing`; cooldown responses include
   `Retry-After`.
 - Parser events are emitted as one-line JSON records with the
   `pagasa_parser.*` event prefix.
-- At one hour of continuous failure, the parser sends one deduplicated Discord
-  alert and continues hourly retries. A successful parse sends one recovery
-  notification. It reuses Dawn v3's Discord incoming-webhook payload pattern,
+- At one hour of continuous failure, the parser enters P0 escalation. It retries
+  every 5 minutes and every failed retry sends a Discord alert until a successful
+  parse sends one recovery notification. It reuses Dawn v3's Discord
+  incoming-webhook payload pattern,
   pointed at a dedicated Maybagyoba channel through `ALERT_WEBHOOK_URL` and
   `PAUL_DISCORD_USER_ID`. `PARSER_IMAGE_REF` identifies the deployed image; no
   webhook value is stored in this repository.
@@ -54,6 +55,47 @@ The following environment variables are available for customization of the insta
 * `ALERT_WEBHOOK_URL` – Optional Discord incoming webhook for persistent parser failures and recoveries.
 * `PAUL_DISCORD_USER_ID` – Optional Discord user ID mentioned by parser alerts.
 * `PARSER_IMAGE_REF` – Deployed image tag or digest included in parser alerts.
+
+### Production alert secret
+
+On dawn-oci, keep the webhook outside the repository and Compose file in a
+root-owned environment file:
+
+```shell
+sudo install -d -o root -g root -m 0750 /etc/maybagyoba
+sudo install -o root -g root -m 0600 /dev/null /etc/maybagyoba/parser.env
+sudoedit /etc/maybagyoba/parser.env
+```
+
+Use the same keys shown in [`.env.example`](.env.example). Do not put the
+webhook URL directly in a command, commit, or chat message. Wire the file into
+the `pagasa-web` service in `/opt/pagasa-parser-web/docker-compose.yml`:
+
+```yaml
+services:
+  pagasa-web:
+    env_file:
+      - /etc/maybagyoba/parser.env
+    volumes:
+      - pagasa-parser-data:/app/data
+
+volumes:
+  pagasa-parser-data:
+```
+
+The data volume is required so retry, alert, and parse-cache state survives a
+container recreation. The current production container predates this fork and
+must receive both the environment-file and volume wiring during rollout.
+
+Validate without printing interpolated secrets:
+
+```shell
+sudo stat -c '%U %G %a %n' /etc/maybagyoba/parser.env
+sudo docker compose -f /opt/pagasa-parser-web/docker-compose.yml config --quiet
+```
+
+Expected ownership/mode is `root root 600`. Recreating the container so it
+loads the environment file is a separate production rollout step.
 
 ## Development
 Before starting, install all dependencies on the root project, `/frontend`, and `/backend`. 
