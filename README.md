@@ -63,7 +63,9 @@ root-owned environment file:
 
 ```shell
 sudo install -d -o root -g root -m 0750 /etc/maybagyoba
-sudo install -o root -g root -m 0600 /dev/null /etc/maybagyoba/parser.env
+sudo touch /etc/maybagyoba/parser.env
+sudo chown root:root /etc/maybagyoba/parser.env
+sudo chmod 0600 /etc/maybagyoba/parser.env
 sudoedit /etc/maybagyoba/parser.env
 ```
 
