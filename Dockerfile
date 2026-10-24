@@ -2,7 +2,7 @@
 #                     BUILD IMAGE
 # ====================================================
 
-FROM node:20-alpine AS BUILD_IMAGE
+FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS BUILD_IMAGE
 ENV NODE_ENV=development
 
 # Disable npm update message
@@ -48,7 +48,7 @@ RUN npm prune --workspaces --omit=dev
 #                       APP IMAGE
 # ====================================================
 
-FROM node:20-alpine AS APP_IMAGE
+FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS APP_IMAGE
 ENV NODE_ENV=production
 ARG PARSER_IMAGE_REF=local
 ENV PARSER_IMAGE_REF=$PARSER_IMAGE_REF

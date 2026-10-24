@@ -14,7 +14,7 @@ You can find a live version of this website at [pagasa.chlod.net](https://pagasa
 Hosting for pagasa.chlod.net is provided by Chlod Alejandro. If you'd like to help alleviate server costs, please consider sponsoring this project.
 
 ## Usage
-Running PAGASA Parser standalone requires Java to run the PDF parser in [@pagasa-parser/source-pdf](https://github.com/jjompong/source-pdf) (Tabula). Aside from this, you'll need Node.js 20. You'll need to build both the backend and frontend first before use. The default port for the web server is 12464.
+Running PAGASA Parser standalone requires Java to run the PDF parser in [@pagasa-parser/source-pdf](https://github.com/jjompong/source-pdf) (Tabula). Aside from this, you'll need the Node.js version pinned in `.node-version` (22.23.4). Both Docker stages use the matching official Alpine image pinned by digest. You'll need to build both the backend and frontend first before use. The default port for the web server is 12464.
 
 ### Parse resilience
 
