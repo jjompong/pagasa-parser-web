@@ -64,11 +64,11 @@ module.exports = {
             publicPath: "/app/js/"
         },
         port: 12465,
-        proxy: {
-            "/": {
-                target: "http://127.0.0.1:12464/"
-            }
-        },
+        host: "127.0.0.1",
+        proxy: [{
+            context: ["/"],
+            target: "http://127.0.0.1:12464/"
+        }],
         static: false
     },
     resolve: {
