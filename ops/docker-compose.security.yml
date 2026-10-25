@@ -1,0 +1,14 @@
+# Apply with the existing production Compose file; retain its data volume,
+# private port binding and secret env_file. Review the merged config privately.
+services:
+  pagasa-web:
+    image: ${PARSER_CANDIDATE_IMAGE:?Set the reviewed parser image digest}
+    environment:
+      PARSER_IMAGE_REF: ${PARSER_CANDIDATE_IMAGE:?Set the reviewed parser image digest}
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m

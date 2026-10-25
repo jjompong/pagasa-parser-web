@@ -86,8 +86,8 @@ volumes:
 ```
 
 The data volume is required so retry, alert, and parse-cache state survives a
-container recreation. The current production container predates this fork and
-must receive both the environment-file and volume wiring during rollout.
+container recreation. Retain the existing data volume and protected
+environment-file wiring during updates.
 
 Validate without printing interpolated secrets:
 
@@ -98,6 +98,26 @@ sudo docker compose -f /opt/pagasa-parser-web/docker-compose.yml config --quiet
 
 Expected ownership/mode is `root root 600`. Recreating the container so it
 loads the environment file is a separate production rollout step.
+
+### Security updates
+
+The root Axios override keeps the pinned PDF source and formatter dependencies
+on the patched 0.34 release line. Both Docker stages and CI use Node 22.23.4;
+updating Node on the host alone does not change a running container.
+
+`ops/docker-compose.security.yml` is an optional override for the existing
+Compose deployment. It requires `PARSER_CANDIDATE_IMAGE` to name the reviewed
+image digest. It makes the root filesystem read-only, drops Linux capabilities,
+blocks privilege escalation, and supplies a temporary `/tmp`. It preserves the
+base file's ports, secrets and `/app/data` volume. Confirm that writable data
+mount exists before using the override; do not apply it as a standalone file.
+The process still runs as root inside the container; moving an existing data
+volume to another user needs a separate ownership review.
+
+Validate the merged configuration with `docker compose config --quiet` so it
+does not print resolved secrets. Recreate the service only after the owner
+approves the reviewed release. Retain the old image digest and base configuration
+for rollback, and never remove the data volume during an update.
 
 ## Development
 Before starting, install all dependencies on the root project, `/frontend`, and `/backend`. 
